@@ -1,5 +1,5 @@
 const CACHE_PREFIX='borderox-';
-const CACHE_NAME='borderox-v9-private-vary-range-safe-shell';
+const CACHE_NAME='borderox-v10-private-vary-range-safe-shell';
 const STATIC_ASSETS=['./','./index.html','./styles.css','./app.js','./manifest.webmanifest','./icon-192.png','./icon-512.png','./icon-512-maskable.png'];
 const PRIVATE_PATH_RE=/\/(api|auth|login|logout|admin|session|sessions|token|tokens|password|account|profile|me)(\/|$)/i;
 const SENSITIVE_QUERY_RE=/^(token|access_token|refresh_token|password|passwd|secret|session|auth|authorization|api_key|apikey|key|code|credential|credentials)$/i;
