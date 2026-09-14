@@ -3,6 +3,8 @@ name: BorderoX PWA Audit
 on:
   push:
     branches: [main]
+  pull_request:
+    branches: [main]
   workflow_dispatch:
 
 permissions:
@@ -19,7 +21,7 @@ jobs:
           set -euo pipefail
           python -m json.tool manifest.webmanifest >/dev/null
           python - <<'PY'
-          import json, re, pathlib, sys
+          import json, re, pathlib
           manifest=json.loads(pathlib.Path('manifest.webmanifest').read_text())
           required=['name','short_name','start_url','display','theme_color','icons']
           missing=[k for k in required if not manifest.get(k)]
@@ -41,8 +43,16 @@ jobs:
           expected=f"./sw.js?v={cache}"
           if expected not in app:
               raise SystemExit(f'service worker registration must use exact version: {expected}')
-          if "updateViaCache:'none'" not in app:
-              raise SystemExit("service worker registration must use updateViaCache:'none'")
+          required_app=[
+              "updateViaCache:'none'",
+              "visibilitychange",
+              "registration.update()",
+              "navigator.serviceWorker.controller",
+              "controllerchange",
+          ]
+          missing_app=[c for c in required_app if c not in app]
+          if missing_app:
+              raise SystemExit(f'service worker update lifecycle checks missing: {missing_app}')
           checks=[
               "request.headers.has('authorization')",
               "request.headers.has('cookie')",
