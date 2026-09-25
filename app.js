@@ -5,6 +5,7 @@ const db=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
 const $=id=>document.getElementById(id);
 const authView=$('authView'),appView=$('appView'),authForm=$('authForm'),authStatus=$('authStatus');
 let authMode='login',currentUser=null,demoMode=false,currentFile=null,extractedText='',lastCalc=null;
+const MONTHS=['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
 
 const money=n=>(Number(n)||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
 const num=id=>Number($(id).value)||0;
@@ -115,6 +116,7 @@ $('fileInput').addEventListener('change',async e=>{
    const parsed=await readStatement(file);extractedText=parsed.text||'';
    $('detectedVgv').value=parsed.vgv.toFixed(2);$('detectedReleased').value=parsed.released.toFixed(2);
    $('detectedTotal').value=parsed.total.toFixed(2);$('detectedSales').value=parsed.sales;$('periodLabel').value=parsed.period||'';
+   if(parsed.period){const m=parsed.period.match(/\/([01]?\d)\/(\d{4})/);if(m){$('competenceMonth').value=String(Number(m[1]));$('competenceYear').value=m[2]}}
    $('reviewBox').classList.remove('hidden');
    $('fileStatus').textContent='Leitura concluída. Confira os valores antes de calcular.';
  }catch(err){$('fileStatus').textContent='Não consegui ler automaticamente: '+(err.message||err)}
@@ -170,8 +172,10 @@ async function calculate(){
  const minimumComplement=Math.max(0,minimum-rawCommission);
  const fixed=num('fixedPay'),spiff=num('spiff'),bonus=num('otherBonus'),advance=num('commissionAdvance'),deductions=num('otherDeductions');
  const companyDebt=num('companyDebt'),companyDebtReason=$('companyDebtReason').value.trim();
+ const competenceMonth=Number($('competenceMonth').value)||new Date().getMonth()+1,competenceYear=Number($('competenceYear').value)||new Date().getFullYear();
+ const cashReleaseThreshold=2;
  const net=commissionAfterMinimum+fixed+spiff+bonus-advance-deductions-companyDebt;
- lastCalc={vgv,released,detectedTotal,sales,pct,base,rawCommission,minimum,minimumComplement,fixed,spiff,bonus,advance,deductions,companyDebt,companyDebtReason,net,role,commissionBase:$('commissionBase').value};
+ lastCalc={vgv,released,detectedTotal,sales,pct,base,rawCommission,minimum,minimumComplement,fixed,spiff,bonus,advance,deductions,companyDebt,companyDebtReason,net,role,commissionBase:$('commissionBase').value,competenceMonth,competenceYear,cashReleaseThreshold};
  renderCalc(lastCalc);
  await saveProfile();
  if(!demoMode&&currentFile){
@@ -194,21 +198,33 @@ function renderCalc(c){
    ['Base da comissão',money(c.base)],['Comissão apurada ('+c.pct.toLocaleString('pt-BR')+'%)',money(c.rawCommission)],
    ['Complemento de mínimo garantido',money(c.minimumComplement)],['Fixo',money(c.fixed)],['SPIFF',money(c.spiff)],
    ['Outros bônus',money(c.bonus)],['Adiantamento de comissão','− '+money(c.advance)],['Outros descontos','− '+money(c.deductions)],
-   ['Débito/desconto com a empresa'+(c.companyDebtReason?' — '+escapeHtml(c.companyDebtReason):''),'− '+money(c.companyDebt)]
+   ['Débito/desconto com a empresa'+(c.companyDebtReason?' — '+escapeHtml(c.companyDebtReason):''),'− '+money(c.companyDebt)],
+   ['Regra de liberação à vista','Cliente com entrada/integralização ≥ '+c.cashReleaseThreshold+'%']
  ];
  $('breakdown').innerHTML=rows.map(([a,b])=>'<div><span>'+a+'</span><strong>'+b+'</strong></div>').join('')+'<div class="total"><span>VALOR A RECEBER</span><strong>'+money(c.net)+'</strong></div>';
 }
 
 async function loadHistory(){
- const {data}=await db.from('borderox_statements').select('id,file_name,period_label,detected_vgv,calculation,created_at').order('created_at',{ascending:false}).limit(10);
+ const {data}=await db.from('borderox_statements').select('id,file_name,period_label,detected_vgv,calculation,created_at').order('created_at',{ascending:false}).limit(200);
  renderHistory(data||[]);
 }
 function renderHistory(items){
+ renderYearSummary(items);
  if(!items.length){$('history').innerHTML='<p class="muted">Nenhum borderô analisado ainda.</p>';return}
- $('history').innerHTML=items.map(x=>'<div class="historyItem"><div><strong>'+escapeHtml(x.file_name)+'</strong><small>'+(escapeHtml(x.period_label||new Date(x.created_at).toLocaleDateString('pt-BR')))+'</small></div><b>'+money(x.calculation?.net||0)+'</b></div>').join('');
+ $('history').innerHTML=items.map(x=>{
+   const c=x.calculation||{}; const label=(c.competenceMonth&&c.competenceYear)?MONTHS[c.competenceMonth-1]+' / '+c.competenceYear:(x.period_label||new Date(x.created_at).toLocaleDateString('pt-BR'));
+   return '<div class="historyItem"><div><strong>'+escapeHtml(x.file_name)+'</strong><small>'+escapeHtml(label)+'</small></div><b>'+money(c.net||0)+'</b></div>';
+ }).join('');
+}
+function renderYearSummary(items){
+ if(!$('yearSummary'))return;
+ const year=Number($('competenceYear')?.value)||new Date().getFullYear();
+ const totals=Array(12).fill(0),counts=Array(12).fill(0);
+ for(const x of items){const c=x.calculation||{};if(Number(c.competenceYear)===year&&Number(c.competenceMonth)>=1&&Number(c.competenceMonth)<=12){totals[c.competenceMonth-1]+=Number(c.net)||0;counts[c.competenceMonth-1]++}}
+ $('yearSummary').innerHTML=MONTHS.map((m,i)=>'<article class="monthCard"><span>'+m+'</span><strong>'+money(totals[i])+'</strong><small>'+counts[i]+' borderô'+(counts[i]===1?'':'s')+'</small></article>').join('');
 }
 function escapeHtml(s){return String(s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
 
 if('serviceWorker' in navigator&&(location.protocol==='https:'||location.hostname==='localhost')){
- window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js?v=borderox-v11-auth-remuneration',{updateViaCache:'none'}).catch(()=>{}));
+ window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js?v=borderox-v12-monthly',{updateViaCache:'none'}).catch(()=>{}));
 }
