@@ -73,11 +73,13 @@
       <label>Liberado no mês (R$)<input id="detectedReleased" type="number" step="0.01"></label>
       <label>Total do borderô (R$)<input id="detectedTotal" type="number" step="0.01"></label>
       <label>Vendas detectadas<input id="detectedSales" type="number" step="1"></label>
+      <label>Mês de competência<select id="competenceMonth"><option value="1">Janeiro</option><option value="2">Fevereiro</option><option value="3">Março</option><option value="4">Abril</option><option value="5">Maio</option><option value="6">Junho</option><option value="7">Julho</option><option value="8">Agosto</option><option value="9">Setembro</option><option value="10">Outubro</option><option value="11">Novembro</option><option value="12">Dezembro</option></select></label>
+      <label>Ano<input id="competenceYear" type="number" min="2020" max="2100" step="1"></label>
       <label>Período<input id="periodLabel" type="text" placeholder="Ex.: 01/08/2026 a 31/08/2026"></label>
       <label>Débito/desconto com a empresa (R$)<input id="companyDebt" type="number" min="0" step="0.01" value="0" placeholder="Ex.: 350,00"></label>
       <label>Motivo do desconto<input id="companyDebtReason" type="text" placeholder="Ex.: uniforme, empréstimo, vale..."></label>
     </div>
-    <p class="muted">Esse desconto é aplicado somente neste fechamento e aparece separado no detalhamento.</p>
+    <p class="muted">Regra automática: quando o cliente atinge 2% de entrada/integralização, a comissão daquela venda é considerada liberada à vista. O desconto é aplicado somente neste fechamento.</p>
     <button id="calculateBtn" class="primary">Calcular meu recebimento</button>
   </div>
 </section>
@@ -88,7 +90,8 @@
 </section>
 
 <section class="glass panel">
-  <div class="sectionTitle"><div><p class="eyebrow">HISTÓRICO</p><h3>Borderôs analisados</h3></div></div>
+  <div class="sectionTitle"><div><p class="eyebrow">HISTÓRICO</p><h3>Borderôs por mês</h3></div><span class="pill">ANO COMPLETO</span></div>
+  <div id="yearSummary" class="monthGrid"></div>
   <div id="history" class="history"><p class="muted">Nenhum borderô analisado ainda.</p></div>
 </section>
 </section>
