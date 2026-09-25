@@ -29,9 +29,16 @@ authForm.addEventListener('submit',async e=>{
  const email=$('email').value.trim(),password=$('password').value,fullName=$('fullName').value.trim();
  try{
    if(authMode==='signup'){
-     const {data,error}=await db.auth.signUp({email,password,options:{data:{full_name:fullName}}});
+     const r=await fetch('https://veznreiamwstlulkpocz.supabase.co/functions/v1/borderox-register',{
+       method:'POST',
+       headers:{'Content-Type':'application/json','apikey':SUPABASE_KEY},
+       body:JSON.stringify({email,password,full_name:fullName})
+     });
+     const result=await r.json().catch(()=>({}));
+     if(!r.ok) throw new Error(result.error||'Não foi possível criar a conta.');
+     const {error}=await db.auth.signInWithPassword({email,password});
      if(error) throw error;
-     if(!data.session){authStatus.textContent='Conta criada. Confira seu e-mail para confirmar o cadastro.';return}
+     authStatus.textContent='Conta criada. Entrando…';
    }else{
      const {error}=await db.auth.signInWithPassword({email,password});
      if(error) throw error;
@@ -40,8 +47,8 @@ authForm.addEventListener('submit',async e=>{
    const msg=String(err?.message||'').toLowerCase();
    if(msg.includes('email rate limit exceeded')||msg.includes('rate limit')){
      authStatus.textContent='Muitas tentativas de cadastro em pouco tempo. Aguarde alguns minutos e tente novamente.';
-   }else if(msg.includes('user already registered')){
-     authStatus.textContent='Este e-mail já possui conta. Toque em Entrar.';
+   }else if(msg.includes('already')||msg.includes('registered')||msg.includes('exists')){
+     authStatus.textContent='Este e-mail já possui uma conta. Toque em Entrar.';
    }else{
      authStatus.textContent=err.message||'Não foi possível continuar.';
    }
