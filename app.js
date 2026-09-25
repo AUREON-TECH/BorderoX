@@ -210,8 +210,11 @@ async function loadHistory(){
 }
 function renderHistory(items){
  renderYearSummary(items);
- if(!items.length){$('history').innerHTML='<p class="muted">Nenhum borderô analisado ainda.</p>';return}
- $('history').innerHTML=items.map(x=>{
+ const year=Number($('historyYear')?.value)||new Date().getFullYear();
+ const filtered=items.filter(x=>{const c=x.calculation||{};return Number(c.competenceYear)===year&&(!selectedHistoryMonth||Number(c.competenceMonth)===selectedHistoryMonth)});
+ renderMonthDetail(filtered,year,selectedHistoryMonth);
+ if(!filtered.length){$('history').innerHTML='<p class="muted">Nenhum borderô encontrado para este período.</p>';return}
+ $('history').innerHTML=filtered.map(x=>{
    const c=x.calculation||{}; const label=(c.competenceMonth&&c.competenceYear)?MONTHS[c.competenceMonth-1]+' / '+c.competenceYear:(x.period_label||new Date(x.created_at).toLocaleDateString('pt-BR'));
    return '<div class="historyItem"><div><strong>'+escapeHtml(x.file_name)+'</strong><small>'+escapeHtml(label)+'</small></div><b>'+money(c.net||0)+'</b></div>';
  }).join('');
@@ -220,8 +223,36 @@ function renderYearSummary(items){
  if(!$('yearSummary'))return;
  const year=Number($('historyYear')?.value)||new Date().getFullYear();
  const totals=Array(12).fill(0),counts=Array(12).fill(0);
- for(const x of items){const c=x.calculation||{};if(Number(c.competenceYear)===year&&Number(c.competenceMonth)>=1&&Number(c.competenceMonth)<=12){totals[c.competenceMonth-1]+=Number(c.net)||0;counts[c.competenceMonth-1]++}}
- $('yearSummary').innerHTML=MONTHS.map((m,i)=>'<article class="monthCard"><span>'+m+'</span><strong>'+money(totals[i])+'</strong><small>'+counts[i]+' borderô'+(counts[i]===1?'':'s')+'</small></article>').join('');
+ let annual=0,annualCount=0;
+ for(const x of items){
+   const c=x.calculation||{};
+   if(Number(c.competenceYear)===year&&Number(c.competenceMonth)>=1&&Number(c.competenceMonth)<=12){
+     const idx=Number(c.competenceMonth)-1;
+     totals[idx]+=Number(c.net)||0;counts[idx]++;annual+=Number(c.net)||0;annualCount++;
+   }
+ }
+ if($('annualTotalValue'))$('annualTotalValue').textContent=money(annual);
+ if($('annualTotalMeta'))$('annualTotalMeta').textContent=annualCount+' borderô'+(annualCount===1?'':'s')+' em '+year;
+ $('yearSummary').innerHTML=MONTHS.map((m,i)=>'<button type="button" class="monthCard '+(selectedHistoryMonth===i+1?'selected':'')+'" data-month="'+(i+1)+'"><span>'+m+'</span><strong>'+money(totals[i])+'</strong><small>'+counts[i]+' borderô'+(counts[i]===1?'':'s')+'</small></button>').join('');
+}
+function renderMonthDetail(items,year,month){
+ if(!$('monthDetail'))return;
+ if(!month){$('monthDetail').classList.add('hidden');$('monthDetail').innerHTML='';return}
+ const sums=items.reduce((acc,x)=>{const c=x.calculation||{};acc.net+=Number(c.net)||0;acc.vgv+=Number(c.vgv)||0;acc.sales+=Number(c.sales)||0;acc.commission+=Number(c.rawCommission)||0;acc.fixed+=Number(c.fixed)||0;acc.spiff+=Number(c.spiff)||0;acc.advance+=Number(c.advance)||0;acc.discounts+=(Number(c.deductions)||0)+(Number(c.companyDebt)||0);acc.released+=Number(c.released)||0;return acc},{net:0,vgv:0,sales:0,commission:0,fixed:0,spiff:0,advance:0,discounts:0,released:0});
+ $('monthDetail').classList.remove('hidden');
+ $('monthDetail').innerHTML='<div class="monthDetailHead"><div><span class="eyebrow">RESUMO DO MÊS</span><h4>'+MONTHS[month-1]+' / '+year+'</h4></div><button type="button" class="miniClose" id="closeMonthDetail">Fechar</button></div>'+
+ '<div class="monthMetrics">'+
+ '<div><span>Valor líquido</span><strong>'+money(sums.net)+'</strong></div>'+
+ '<div><span>VGV</span><strong>'+money(sums.vgv)+'</strong></div>'+
+ '<div><span>Vendas</span><strong>'+sums.sales+'</strong></div>'+
+ '<div><span>Comissão bruta</span><strong>'+money(sums.commission)+'</strong></div>'+
+ '<div><span>Fixo</span><strong>'+money(sums.fixed)+'</strong></div>'+
+ '<div><span>SPIFF</span><strong>'+money(sums.spiff)+'</strong></div>'+
+ '<div><span>Adiantamentos</span><strong>− '+money(sums.advance)+'</strong></div>'+
+ '<div><span>Descontos</span><strong>− '+money(sums.discounts)+'</strong></div>'+
+ '<div><span>Liberado no mês</span><strong>'+money(sums.released)+'</strong></div>'+
+ '</div><p class="muted">Regra ativa: vendas com 2% ou mais de entrada/integralização são tratadas como comissão liberada à vista.</p>';
+ const close=$('closeMonthDetail');if(close)close.onclick=()=>{selectedHistoryMonth=null;renderHistory(borderoxHistoryCache)};
 }
 function escapeHtml(s){return String(s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
 
@@ -230,4 +261,11 @@ if('serviceWorker' in navigator&&(location.protocol==='https:'||location.hostnam
 }
 
 let borderoxHistoryCache=[];
-if($('historyYear')) $('historyYear').addEventListener('change',()=>renderHistory(borderoxHistoryCache));
+let selectedHistoryMonth=null;
+if($('historyYear')) $('historyYear').addEventListener('change',()=>{selectedHistoryMonth=null;renderHistory(borderoxHistoryCache)});
+if($('yearSummary')) $('yearSummary').addEventListener('click',e=>{
+  const card=e.target.closest('[data-month]');
+  if(!card)return;
+  selectedHistoryMonth=Number(card.dataset.month);
+  renderHistory(borderoxHistoryCache);
+});
