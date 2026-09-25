@@ -35,7 +35,16 @@ authForm.addEventListener('submit',async e=>{
      const {error}=await db.auth.signInWithPassword({email,password});
      if(error) throw error;
    }
- }catch(err){authStatus.textContent=err.message||'Não foi possível continuar.'}
+ }catch(err){
+   const msg=String(err?.message||'').toLowerCase();
+   if(msg.includes('email rate limit exceeded')||msg.includes('rate limit')){
+     authStatus.textContent='Muitas tentativas de cadastro em pouco tempo. Aguarde alguns minutos e tente novamente.';
+   }else if(msg.includes('user already registered')){
+     authStatus.textContent='Este e-mail já possui conta. Toque em Entrar.';
+   }else{
+     authStatus.textContent=err.message||'Não foi possível continuar.';
+   }
+ }
 });
 
 $('forgotBtn').onclick=async()=>{
@@ -43,7 +52,10 @@ $('forgotBtn').onclick=async()=>{
  if(!email){authStatus.textContent='Digite seu e-mail primeiro.';return}
  authStatus.textContent='Enviando recuperação…';
  const {error}=await db.auth.resetPasswordForEmail(email,{redirectTo:location.origin+location.pathname});
- authStatus.textContent=error?error.message:'Enviamos o link de recuperação para seu e-mail.';
+ if(error){
+   const msg=String(error.message||'').toLowerCase();
+   authStatus.textContent=(msg.includes('rate limit')?'Muitas solicitações em pouco tempo. Aguarde alguns minutos antes de pedir outro e-mail.':error.message);
+ }else authStatus.textContent='Enviamos o link de recuperação para seu e-mail.';
 };
 
 $('demoBtn').onclick=()=>enterApp({id:'demo',email:'demo@borderox.app',user_metadata:{full_name:'Demonstração'}},true);
