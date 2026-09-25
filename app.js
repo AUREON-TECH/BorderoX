@@ -206,7 +206,7 @@ function renderCalc(c){
 
 async function loadHistory(){
  const {data}=await db.from('borderox_statements').select('id,file_name,period_label,detected_vgv,calculation,created_at').order('created_at',{ascending:false}).limit(200);
- renderHistory(data||[]);
+ borderoxHistoryCache=data||[]; renderHistory(borderoxHistoryCache);
 }
 function renderHistory(items){
  renderYearSummary(items);
@@ -218,7 +218,7 @@ function renderHistory(items){
 }
 function renderYearSummary(items){
  if(!$('yearSummary'))return;
- const year=Number($('competenceYear')?.value)||new Date().getFullYear();
+ const year=Number($('historyYear')?.value)||new Date().getFullYear();
  const totals=Array(12).fill(0),counts=Array(12).fill(0);
  for(const x of items){const c=x.calculation||{};if(Number(c.competenceYear)===year&&Number(c.competenceMonth)>=1&&Number(c.competenceMonth)<=12){totals[c.competenceMonth-1]+=Number(c.net)||0;counts[c.competenceMonth-1]++}}
  $('yearSummary').innerHTML=MONTHS.map((m,i)=>'<article class="monthCard"><span>'+m+'</span><strong>'+money(totals[i])+'</strong><small>'+counts[i]+' borderô'+(counts[i]===1?'':'s')+'</small></article>').join('');
@@ -228,3 +228,6 @@ function escapeHtml(s){return String(s||'').replace(/[&<>"']/g,c=>({'&':'&amp;',
 if('serviceWorker' in navigator&&(location.protocol==='https:'||location.hostname==='localhost')){
  window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js?v=borderox-v12-monthly',{updateViaCache:'none'}).catch(()=>{}));
 }
+
+let borderoxHistoryCache=[];
+if($('historyYear')) $('historyYear').addEventListener('change',()=>renderHistory(borderoxHistoryCache));
