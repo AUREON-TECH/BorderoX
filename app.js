@@ -268,7 +268,7 @@ function renderMonthDetail(items,year,month){
 function escapeHtml(s){return String(s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
 
 if('serviceWorker' in navigator&&(location.protocol==='https:'||location.hostname==='localhost')){
- window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js?v=borderox-v12-monthly',{updateViaCache:'none'}).catch(()=>{}));
+ window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js?v=borderox-v14-install',{updateViaCache:'none'}).catch(()=>{}));
 }
 
 let borderoxHistoryCache=[];
@@ -279,4 +279,45 @@ if($('yearSummary')) $('yearSummary').addEventListener('click',e=>{
   if(!card)return;
   selectedHistoryMonth=Number(card.dataset.month);
   renderHistory(borderoxHistoryCache);
+});
+
+let deferredInstallPrompt=null;
+const installButtons=()=>[$('installBtn'),$('installBtnApp')].filter(Boolean);
+
+window.addEventListener('beforeinstallprompt',e=>{
+  e.preventDefault();
+  deferredInstallPrompt=e;
+  installButtons().forEach(b=>b.classList.remove('hidden'));
+  if($('installHint'))$('installHint').classList.add('hidden');
+});
+
+async function installBorderoX(){
+  if(deferredInstallPrompt){
+    deferredInstallPrompt.prompt();
+    const choice=await deferredInstallPrompt.userChoice;
+    if(choice.outcome==='accepted'){
+      installButtons().forEach(b=>b.classList.add('hidden'));
+      if($('installHint')){$('installHint').textContent='BorderoX instalado no seu aparelho.';$('installHint').classList.remove('hidden')}
+    }
+    deferredInstallPrompt=null;
+    return;
+  }
+  const ua=navigator.userAgent||'';
+  const isIOS=/iPhone|iPad|iPod/i.test(ua);
+  const isStandalone=window.matchMedia('(display-mode: standalone)').matches||window.navigator.standalone===true;
+  if(isStandalone){
+    if($('installHint')){$('installHint').textContent='O BorderoX já está instalado neste aparelho.';$('installHint').classList.remove('hidden')}
+    return;
+  }
+  if($('installHint')){
+    $('installHint').textContent=isIOS?'No iPhone: toque em Compartilhar e depois em “Adicionar à Tela de Início”.':'No navegador, abra o menu ⋮ e toque em “Instalar app” ou “Adicionar à tela inicial”.';
+    $('installHint').classList.remove('hidden');
+  }
+}
+if($('installBtn'))$('installBtn').onclick=installBorderoX;
+if($('installBtnApp'))$('installBtnApp').onclick=installBorderoX;
+
+window.addEventListener('appinstalled',()=>{
+  installButtons().forEach(b=>b.classList.add('hidden'));
+  if($('installHint')){$('installHint').textContent='BorderoX instalado com sucesso.';$('installHint').classList.remove('hidden')}
 });
