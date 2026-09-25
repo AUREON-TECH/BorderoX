@@ -69,6 +69,10 @@ async function enterApp(user,isDemo){
  currentUser=user; demoMode=isDemo;
  authView.classList.add('hidden');appView.classList.remove('hidden');
  $('userName').textContent=user.user_metadata?.full_name||user.email?.split('@')[0]||'Profissional';
+ const now=new Date();
+ if($('competenceMonth'))$('competenceMonth').value=String(now.getMonth()+1);
+ if($('competenceYear'))$('competenceYear').value=String(now.getFullYear());
+ if($('historyYear'))$('historyYear').value=String(now.getFullYear());
  if(isDemo){loadDemoProfile();renderHistory([]);return}
  await loadProfile(); await loadHistory();
 }
