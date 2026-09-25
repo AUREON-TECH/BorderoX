@@ -1,13 +1,200 @@
-const login=document.getElementById('login');const dash=document.getElementById('dash');const form=document.getElementById('loginForm');const demoBtn=document.getElementById('demoBtn');const logout=document.getElementById('logout');const statusEl=document.getElementById('status');const nameEl=document.getElementById('name');
-const AUREON={baseUrl:localStorage.getItem('borderox:aureonBaseUrl')||'',project:'borderox'};
-function openDash(name='Profissional'){nameEl.textContent=name;login.classList.add('hidden');dash.classList.remove('hidden');sessionStorage.setItem('borderox:demo','1')}
-function closeDash(){dash.classList.add('hidden');login.classList.remove('hidden');sessionStorage.removeItem('borderox:demo')}
-demoBtn.addEventListener('click',()=>openDash('Raphael'));
-logout.addEventListener('click',closeDash);
-form.addEventListener('submit',async(e)=>{e.preventDefault();const email=document.getElementById('email').value.trim();const password=document.getElementById('password').value;if(!AUREON.baseUrl){statusEl.textContent='Aureon Base ainda não está publicada. Use a demonstração enquanto a API é conectada.';return}statusEl.textContent='Entrando…';try{const r=await fetch(`${AUREON.baseUrl}/auth/login`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email,password,project:AUREON.project})});if(!r.ok)throw new Error('Login não autorizado');const data=await r.json();sessionStorage.setItem('borderox:accessToken',data.accessToken||data.access_token||'');openDash(data.user?.name||email.split('@')[0])}catch(err){statusEl.textContent=err.message||'Não foi possível entrar.'}});
-if(sessionStorage.getItem('borderox:demo'))openDash('Raphael');
-let deferredPrompt=null;let installButton=null;
-function ensureInstallButton(){if(installButton||window.matchMedia('(display-mode: standalone)').matches)return;installButton=document.createElement('button');installButton.type='button';installButton.className='ghost';installButton.textContent='Instalar BorderoX';installButton.setAttribute('aria-label','Instalar BorderoX como aplicativo');installButton.addEventListener('click',async()=>{if(!deferredPrompt)return;installButton.disabled=true;deferredPrompt.prompt();try{await deferredPrompt.userChoice}catch{}deferredPrompt=null;installButton.remove();installButton=null});form.appendChild(installButton)}
-window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();deferredPrompt=e;ensureInstallButton()});
-window.addEventListener('appinstalled',()=>{deferredPrompt=null;if(installButton){installButton.remove();installButton=null}});
-if('serviceWorker' in navigator&&(location.protocol==='https:'||location.hostname==='localhost'))window.addEventListener('load',()=>{const hadController=Boolean(navigator.serviceWorker.controller);let reloading=false;navigator.serviceWorker.addEventListener('controllerchange',()=>{if(!hadController||reloading)return;reloading=true;location.reload()});navigator.serviceWorker.register('./sw.js?v=borderox-v10-private-vary-range-safe-shell',{updateViaCache:'none'}).then(registration=>{const checkForUpdate=()=>registration.update().catch(()=>{});checkForUpdate();document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')checkForUpdate()});window.addEventListener('online',checkForUpdate)}).catch(()=>{})});
+const SUPABASE_URL='https://veznreiamwstlulkpocz.supabase.co';
+const SUPABASE_KEY='sb_publishable_7ukoyUiZh73XRZxzBDhqjw_OsvJ8_JB';
+const db=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
+
+const $=id=>document.getElementById(id);
+const authView=$('authView'),appView=$('appView'),authForm=$('authForm'),authStatus=$('authStatus');
+let authMode='login',currentUser=null,demoMode=false,currentFile=null,extractedText='',lastCalc=null;
+
+const money=n=>(Number(n)||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
+const num=id=>Number($(id).value)||0;
+const roleName=v=>({promotor:'Promotor de Marketing',consultor:'Consultor',closer:'Closer'}[v]||'Perfil');
+const parseBR=s=>{if(!s)return 0;const clean=String(s).replace(/R\$\s?/gi,'').replace(/\./g,'').replace(',','.').replace(/[^0-9.-]/g,'');return Number(clean)||0};
+
+function setMode(mode){
+ authMode=mode;
+ $('tabLogin').classList.toggle('active',mode==='login');
+ $('tabSignup').classList.toggle('active',mode==='signup');
+ $('nameWrap').classList.toggle('hidden',mode==='login');
+ $('authSubmit').textContent=mode==='login'?'Entrar':'Criar minha conta';
+ $('forgotBtn').classList.toggle('hidden',mode==='signup');
+ authStatus.textContent='';
+}
+$('tabLogin').onclick=()=>setMode('login');
+$('tabSignup').onclick=()=>setMode('signup');
+
+authForm.addEventListener('submit',async e=>{
+ e.preventDefault(); authStatus.textContent=authMode==='login'?'Entrando…':'Criando conta…';
+ const email=$('email').value.trim(),password=$('password').value,fullName=$('fullName').value.trim();
+ try{
+   if(authMode==='signup'){
+     const {data,error}=await db.auth.signUp({email,password,options:{data:{full_name:fullName}}});
+     if(error) throw error;
+     if(!data.session){authStatus.textContent='Conta criada. Confira seu e-mail para confirmar o cadastro.';return}
+   }else{
+     const {error}=await db.auth.signInWithPassword({email,password});
+     if(error) throw error;
+   }
+ }catch(err){authStatus.textContent=err.message||'Não foi possível continuar.'}
+});
+
+$('forgotBtn').onclick=async()=>{
+ const email=$('email').value.trim();
+ if(!email){authStatus.textContent='Digite seu e-mail primeiro.';return}
+ authStatus.textContent='Enviando recuperação…';
+ const {error}=await db.auth.resetPasswordForEmail(email,{redirectTo:location.origin+location.pathname});
+ authStatus.textContent=error?error.message:'Enviamos o link de recuperação para seu e-mail.';
+};
+
+$('demoBtn').onclick=()=>enterApp({id:'demo',email:'demo@borderox.app',user_metadata:{full_name:'Demonstração'}},true);
+$('logoutBtn').onclick=async()=>{if(!demoMode)await db.auth.signOut();demoMode=false;currentUser=null;appView.classList.add('hidden');authView.classList.remove('hidden')};
+
+db.auth.onAuthStateChange((_event,session)=>{if(session?.user)enterApp(session.user,false);else if(!demoMode){appView.classList.add('hidden');authView.classList.remove('hidden')}});
+db.auth.getSession().then(({data})=>{if(data.session?.user)enterApp(data.session.user,false)});
+
+async function enterApp(user,isDemo){
+ currentUser=user; demoMode=isDemo;
+ authView.classList.add('hidden');appView.classList.remove('hidden');
+ $('userName').textContent=user.user_metadata?.full_name||user.email?.split('@')[0]||'Profissional';
+ if(isDemo){loadDemoProfile();renderHistory([]);return}
+ await loadProfile(); await loadHistory();
+}
+
+function loadDemoProfile(){
+ $('role').value='promotor';$('commissionPercent').value='1';$('commissionBase').value='vgv';
+ $('fixedPay').value='1500';$('spiff').value='0';$('minimumGuarantee').value='1500';$('commissionAdvance').value='0';$('otherBonus').value='0';$('otherDeductions').value='0';
+ syncRole();
+}
+
+async function loadProfile(){
+ const {data}=await db.from('borderox_profiles').select('*').eq('user_id',currentUser.id).maybeSingle();
+ if(!data){syncRole();return}
+ $('role').value=data.professional_role||'';
+ $('commissionPercent').value=data.commission_percent||0;
+ $('commissionBase').value=data.commission_base||'vgv';
+ $('fixedPay').value=data.fixed_pay||0;$('spiff').value=data.spiff||0;
+ $('minimumGuarantee').value=data.minimum_guarantee||0;$('commissionAdvance').value=data.commission_advance||0;
+ $('otherBonus').value=data.other_bonus||0;$('otherDeductions').value=data.other_deductions||0;
+ syncRole();
+}
+
+$('role').onchange=syncRole;
+function syncRole(){$('roleBadge').textContent=roleName($('role').value)}
+$('saveProfileBtn').onclick=saveProfile;
+
+async function saveProfile(){
+ syncRole();$('savedBadge').textContent='salvando…';
+ if(demoMode){$('savedBadge').textContent='demo';return}
+ const payload={
+   user_id:currentUser.id,full_name:currentUser.user_metadata?.full_name||null,email:currentUser.email,
+   professional_role:$('role').value||null,commission_percent:num('commissionPercent'),commission_base:$('commissionBase').value,
+   fixed_pay:num('fixedPay'),spiff:num('spiff'),minimum_guarantee:num('minimumGuarantee'),
+   commission_advance:num('commissionAdvance'),other_bonus:num('otherBonus'),other_deductions:num('otherDeductions'),updated_at:new Date().toISOString()
+ };
+ const {error}=await db.from('borderox_profiles').upsert(payload,{onConflict:'user_id'});
+ $('savedBadge').textContent=error?'erro':'salvo';
+ if(error) $('fileStatus').textContent='Não foi possível salvar o perfil: '+error.message;
+}
+
+$('fileInput').addEventListener('change',async e=>{
+ const file=e.target.files?.[0]; if(!file)return;
+ currentFile=file;$('fileStatus').textContent='Lendo '+file.name+'…';$('reviewBox').classList.add('hidden');
+ try{
+   const parsed=await readStatement(file);extractedText=parsed.text||'';
+   $('detectedVgv').value=parsed.vgv.toFixed(2);$('detectedReleased').value=parsed.released.toFixed(2);
+   $('detectedTotal').value=parsed.total.toFixed(2);$('detectedSales').value=parsed.sales;$('periodLabel').value=parsed.period||'';
+   $('reviewBox').classList.remove('hidden');
+   $('fileStatus').textContent='Leitura concluída. Confira os valores antes de calcular.';
+ }catch(err){$('fileStatus').textContent='Não consegui ler automaticamente: '+(err.message||err)}
+});
+
+async function readStatement(file){
+ const ext=file.name.split('.').pop().toLowerCase();
+ let text='',tokens=[];
+ if(ext==='pdf'){
+   const pdfjs=await import('https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.8.69/pdf.min.mjs');
+   pdfjs.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.8.69/pdf.worker.min.mjs';
+   const bytes=new Uint8Array(await file.arrayBuffer());const pdf=await pdfjs.getDocument({data:bytes}).promise;
+   for(let p=1;p<=pdf.numPages;p++){const page=await pdf.getPage(p);const c=await page.getTextContent();const t=c.items.map(i=>i.str).filter(Boolean);tokens.push(...t);text+='\n'+t.join(' ')}
+ }else if(['xlsx','xls'].includes(ext)){
+   if(!window.XLSX)throw new Error('Leitor de planilha ainda carregando. Tente novamente em alguns segundos.');
+   const wb=XLSX.read(await file.arrayBuffer(),{type:'array'});for(const s of wb.SheetNames){const csv=XLSX.utils.sheet_to_csv(wb.Sheets[s]);text+='\n'+csv}tokens=text.split(/[\n,;]/).filter(Boolean);
+ }else{text=await file.text();tokens=text.split(/\s+/).filter(Boolean)}
+ return extractNumbers(text,tokens);
+}
+
+function extractNumbers(text,tokens){
+ const flat=text.replace(/\s+/g,' ');
+ const totalMatch=flat.match(/TOTAL\s*:?\s*(R\$\s*[\d.]+,\d{2})/i);
+ const periodMatch=flat.match(/PER[IÍ]ODO\s*:?\s*([0-3]?\d\/[01]?\d\/\d{4}\s*(?:a|até|-)\s*[0-3]?\d\/[01]?\d\/\d{4})/i);
+ const total=totalMatch?parseBR(totalMatch[1]):0;
+ let released=0,sales=0,vgv=0;const seen=new Set();
+ for(let i=0;i<tokens.length;i++){
+   const tok=String(tokens[i]).trim();
+   if(/^Liberada$/i.test(tok)){
+     for(let j=i-1;j>=Math.max(0,i-10);j--){if(/R\$\s*[\d.]+,\d{2}/.test(tokens[j])){released+=parseBR(tokens[j]);break}}
+   }
+   if(/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(tok)){
+     const window=tokens.slice(i,i+12).map(String);
+     const contract=window.find(x=>/\d{1,2}\s*\/\s*\d{1,2}/.test(x)&&!/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(x));
+     const firstMoney=window.find(x=>/R\$\s*[\d.]+,\d{2}/.test(x));
+     if(contract&&!seen.has(contract)){seen.add(contract);sales++;if(firstMoney)vgv+=parseBR(firstMoney)}
+   }
+ }
+ if(!sales){
+   const contracts=[...flat.matchAll(/(?:COLLINA\s*-?\s*)?\d{1,2}\s*\/\s*\d{1,2}/gi)].map(m=>m[0]);
+   sales=new Set(contracts).size;
+ }
+ return {text,total,period:periodMatch?.[1]||'',released,vgv,sales};
+}
+
+$('calculateBtn').onclick=calculate;
+async function calculate(){
+ const role=$('role').value;if(!role){$('fileStatus').textContent='Escolha sua profissão antes de calcular.';return}
+ const vgv=num('detectedVgv'),released=num('detectedReleased'),detectedTotal=num('detectedTotal'),sales=Math.max(0,Math.round(num('detectedSales')));
+ const pct=num('commissionPercent'),base=$('commissionBase').value==='liberado'?released:vgv;
+ const rawCommission=base*(pct/100),minimum=num('minimumGuarantee');
+ const commissionAfterMinimum=Math.max(rawCommission,minimum);
+ const minimumComplement=Math.max(0,minimum-rawCommission);
+ const fixed=num('fixedPay'),spiff=num('spiff'),bonus=num('otherBonus'),advance=num('commissionAdvance'),deductions=num('otherDeductions');
+ const net=commissionAfterMinimum+fixed+spiff+bonus-advance-deductions;
+ lastCalc={vgv,released,detectedTotal,sales,pct,base,rawCommission,minimum,minimumComplement,fixed,spiff,bonus,advance,deductions,net,role,commissionBase:$('commissionBase').value};
+ renderCalc(lastCalc);
+ await saveProfile();
+ if(!demoMode&&currentFile){
+   const {error}=await db.from('borderox_statements').insert({
+     user_id:currentUser.id,file_name:currentFile.name,period_label:$('periodLabel').value||null,
+     detected_total:detectedTotal,detected_vgv:vgv,detected_released:released,detected_sales:sales,
+     calculation:lastCalc,extracted_text:extractedText.slice(0,50000)
+   });
+   if(error)$('fileStatus').textContent='Cálculo pronto, mas o histórico não pôde ser salvo: '+error.message;
+   else await loadHistory();
+ }
+ window.scrollTo({top:0,behavior:'smooth'});
+}
+
+function renderCalc(c){
+ $('netValue').textContent=money(c.net);$('vgvValue').textContent=money(c.vgv);$('releasedValue').textContent=money(c.released);
+ $('commissionValue').textContent=money(c.rawCommission);$('salesValue').textContent=c.sales;$('netHint').textContent=roleName(c.role)+' · '+c.pct.toLocaleString('pt-BR')+'% de comissão';
+ $('breakdownPanel').classList.remove('hidden');
+ const rows=[
+   ['Base da comissão',money(c.base)],['Comissão apurada ('+c.pct.toLocaleString('pt-BR')+'%)',money(c.rawCommission)],
+   ['Complemento de mínimo garantido',money(c.minimumComplement)],['Fixo',money(c.fixed)],['SPIFF',money(c.spiff)],
+   ['Outros bônus',money(c.bonus)],['Adiantamento de comissão','− '+money(c.advance)],['Outros descontos','− '+money(c.deductions)]
+ ];
+ $('breakdown').innerHTML=rows.map(([a,b])=>'<div><span>'+a+'</span><strong>'+b+'</strong></div>').join('')+'<div class="total"><span>VALOR A RECEBER</span><strong>'+money(c.net)+'</strong></div>';
+}
+
+async function loadHistory(){
+ const {data}=await db.from('borderox_statements').select('id,file_name,period_label,detected_vgv,calculation,created_at').order('created_at',{ascending:false}).limit(10);
+ renderHistory(data||[]);
+}
+function renderHistory(items){
+ if(!items.length){$('history').innerHTML='<p class="muted">Nenhum borderô analisado ainda.</p>';return}
+ $('history').innerHTML=items.map(x=>'<div class="historyItem"><div><strong>'+escapeHtml(x.file_name)+'</strong><small>'+(escapeHtml(x.period_label||new Date(x.created_at).toLocaleDateString('pt-BR')))+'</small></div><b>'+money(x.calculation?.net||0)+'</b></div>').join('');
+}
+function escapeHtml(s){return String(s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+
+if('serviceWorker' in navigator&&(location.protocol==='https:'||location.hostname==='localhost')){
+ window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js?v=borderox-v11-auth-remuneration',{updateViaCache:'none'}).catch(()=>{}));
+}
