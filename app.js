@@ -157,8 +157,9 @@ async function calculate(){
  const commissionAfterMinimum=Math.max(rawCommission,minimum);
  const minimumComplement=Math.max(0,minimum-rawCommission);
  const fixed=num('fixedPay'),spiff=num('spiff'),bonus=num('otherBonus'),advance=num('commissionAdvance'),deductions=num('otherDeductions');
- const net=commissionAfterMinimum+fixed+spiff+bonus-advance-deductions;
- lastCalc={vgv,released,detectedTotal,sales,pct,base,rawCommission,minimum,minimumComplement,fixed,spiff,bonus,advance,deductions,net,role,commissionBase:$('commissionBase').value};
+ const companyDebt=num('companyDebt'),companyDebtReason=$('companyDebtReason').value.trim();
+ const net=commissionAfterMinimum+fixed+spiff+bonus-advance-deductions-companyDebt;
+ lastCalc={vgv,released,detectedTotal,sales,pct,base,rawCommission,minimum,minimumComplement,fixed,spiff,bonus,advance,deductions,companyDebt,companyDebtReason,net,role,commissionBase:$('commissionBase').value};
  renderCalc(lastCalc);
  await saveProfile();
  if(!demoMode&&currentFile){
@@ -180,7 +181,8 @@ function renderCalc(c){
  const rows=[
    ['Base da comissão',money(c.base)],['Comissão apurada ('+c.pct.toLocaleString('pt-BR')+'%)',money(c.rawCommission)],
    ['Complemento de mínimo garantido',money(c.minimumComplement)],['Fixo',money(c.fixed)],['SPIFF',money(c.spiff)],
-   ['Outros bônus',money(c.bonus)],['Adiantamento de comissão','− '+money(c.advance)],['Outros descontos','− '+money(c.deductions)]
+   ['Outros bônus',money(c.bonus)],['Adiantamento de comissão','− '+money(c.advance)],['Outros descontos','− '+money(c.deductions)],
+   ['Débito/desconto com a empresa'+(c.companyDebtReason?' — '+escapeHtml(c.companyDebtReason):''),'− '+money(c.companyDebt)]
  ];
  $('breakdown').innerHTML=rows.map(([a,b])=>'<div><span>'+a+'</span><strong>'+b+'</strong></div>').join('')+'<div class="total"><span>VALOR A RECEBER</span><strong>'+money(c.net)+'</strong></div>';
 }
