@@ -1,10 +1,99 @@
 <!doctype html>
-<html lang="pt-BR"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#050816"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"><meta name="apple-mobile-web-app-title" content="BorderoX"><meta name="description" content="BorderoX — borderô, comissões e recebimentos em tempo real."><link rel="manifest" href="manifest.webmanifest"><link rel="icon" type="image/png" sizes="192x192" href="icon-192.png"><link rel="apple-touch-icon" href="icon-192.png"><link rel="stylesheet" href="styles.css"><title>BorderoX</title></head>
-<body><div class="orb a"></div><div class="orb b"></div><main class="shell">
-<section id="login" class="login"><div class="mark">BX</div><p class="eyebrow">AUREON ECOSYSTEM</p><h1>Bordero<span>X</span></h1><p class="sub">Seu borderô. Seus ganhos. Em tempo real.</p><form id="loginForm" class="glass card"><label>E-mail<input id="email" type="email" placeholder="voce@empresa.com" required></label><label>Senha<input id="password" type="password" placeholder="••••••••" required></label><button class="primary" type="submit">Entrar</button><button id="demoBtn" class="ghost" type="button">Ver demonstração</button><p id="status" class="status"></p></form></section>
-<section id="dash" class="dash hidden"><header><div><p class="eyebrow">BORDERÔ DIGITAL</p><h2>Olá, <span id="name">Profissional</span></h2></div><button id="logout" class="icon">↗</button></header>
-<section class="hero glass"><div><p>Ganhos no mês</p><h3>R$ 4.850,00</h3><span class="up">+18,4% vs. mês anterior</span></div><div class="ring"><strong>72%</strong><span>liberado</span></div></section>
-<section class="metrics"><article class="glass metric"><span>Recebido</span><strong>R$ 2.300</strong><small>crédito confirmado</small></article><article class="glass metric"><span>Liberado</span><strong>R$ 1.250</strong><small>aguardando pagamento</small></article><article class="glass metric"><span>Em análise</span><strong>R$ 1.300</strong><small>aguardando integralização</small></article><article class="glass metric"><span>VGV</span><strong>R$ 486 mil</strong><small>7 vendas no período</small></article></section>
-<section class="glass block"><div class="head"><div><p class="eyebrow">REGRA DE LIBERAÇÃO</p><h3>Integralização do cliente</h3></div><span class="pill">2%</span></div><div class="row"><div><b>Contrato BX-2407</b><small>R$ 98.000 • 2,4% integralizado</small></div><span class="ok">Liberado</span></div><div class="progress"><i style="width:100%"></i></div><div class="row"><div><b>Contrato BX-2411</b><small>R$ 112.000 • 1,3% integralizado</small></div><span>Falta R$ 784</span></div><div class="progress"><i style="width:65%"></i></div></section>
-<section class="glass block"><div class="head"><div><p class="eyebrow">PRÓXIMOS CRÉDITOS</p><h3>Parcelas</h3></div><button class="textbtn">Ver todas</button></div><div class="pay"><span class="dot"></span><div><b>1ª parcela</b><small>Contrato BX-2407</small></div><strong>R$ 686,00</strong></div><div class="pay"><span class="dot wait"></span><div><b>2ª parcela</b><small>Contrato BX-2398</small></div><strong>R$ 540,00</strong></div></section>
-<nav class="nav glass"><button class="active">⌂<span>Início</span></button><button>▤<span>Vendas</span></button><button>◫<span>Receber</span></button><button>◎<span>Perfil</span></button></nav></section></main><script src="app.js"></script></body></html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#050816">
+<meta name="description" content="BorderoX — leitura de borderôs e cálculo de remuneração.">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="stylesheet" href="styles.css">
+<title>BorderoX</title>
+</head>
+<body>
+<div class="orb a"></div><div class="orb b"></div>
+<main class="shell">
+<section id="authView" class="auth">
+  <div class="brand"><div class="mark">BX</div><p class="eyebrow">AUREON ECOSYSTEM</p><h1>Bordero<span>X</span></h1><p>Seu borderô. Seus ganhos. Em tempo real.</p></div>
+  <div class="glass card">
+    <div class="tabs"><button id="tabLogin" class="active">Entrar</button><button id="tabSignup">Criar conta</button></div>
+    <form id="authForm">
+      <label id="nameWrap" class="hidden">Nome completo<input id="fullName" type="text" autocomplete="name"></label>
+      <label>E-mail<input id="email" type="email" placeholder="voce@empresa.com" autocomplete="email" required></label>
+      <label>Senha<input id="password" type="password" placeholder="mínimo 6 caracteres" minlength="6" required></label>
+      <button id="authSubmit" class="primary" type="submit">Entrar</button>
+      <button id="forgotBtn" class="linkbtn" type="button">Esqueci minha senha</button>
+      <button id="demoBtn" class="ghost" type="button">Ver demonstração</button>
+      <p id="authStatus" class="status"></p>
+    </form>
+  </div>
+</section>
+
+<section id="appView" class="hidden">
+<header class="topbar"><div><p class="eyebrow">BORDERÔ DIGITAL</p><h2>Olá, <span id="userName">Profissional</span></h2></div><button id="logoutBtn" class="icon">Sair</button></header>
+
+<section class="glass hero">
+  <div><small>VALOR A RECEBER</small><h3 id="netValue">R$ 0,00</h3><p id="netHint">Envie seu borderô para calcular.</p></div>
+  <div class="roleBadge" id="roleBadge">Perfil</div>
+</section>
+
+<section class="grid2">
+  <article class="glass stat"><span>VGV identificado</span><strong id="vgvValue">R$ 0,00</strong></article>
+  <article class="glass stat"><span>Liberado no mês</span><strong id="releasedValue">R$ 0,00</strong></article>
+  <article class="glass stat"><span>Comissão calculada</span><strong id="commissionValue">R$ 0,00</strong></article>
+  <article class="glass stat"><span>Vendas detectadas</span><strong id="salesValue">0</strong></article>
+</section>
+
+<section class="glass panel">
+  <div class="sectionTitle"><div><p class="eyebrow">1. SEU PERFIL</p><h3>Como você é remunerado?</h3></div><span id="savedBadge" class="pill">salvo</span></div>
+  <div class="formgrid">
+    <label>Profissão<select id="role"><option value="">Selecione</option><option value="promotor">Promotor de Marketing</option><option value="consultor">Consultor</option><option value="closer">Closer</option></select></label>
+    <label>Comissão (%)<input id="commissionPercent" type="number" min="0" step="0.01" value="0"></label>
+    <label>Base da comissão<select id="commissionBase"><option value="vgv">VGV / valor das vendas</option><option value="liberado">Liberado no mês</option></select></label>
+    <label>Fixo (R$)<input id="fixedPay" type="number" min="0" step="0.01" value="0"></label>
+    <label>SPIFF (R$)<input id="spiff" type="number" min="0" step="0.01" value="0"></label>
+    <label>Mínimo garantido (R$)<input id="minimumGuarantee" type="number" min="0" step="0.01" value="0"></label>
+    <label>Adiantamento de comissão (R$)<input id="commissionAdvance" type="number" min="0" step="0.01" value="0"></label>
+    <label>Outros bônus (R$)<input id="otherBonus" type="number" min="0" step="0.01" value="0"></label>
+    <label>Outros descontos (R$)<input id="otherDeductions" type="number" min="0" step="0.01" value="0"></label>
+  </div>
+  <button id="saveProfileBtn" class="primary">Salvar perfil de remuneração</button>
+</section>
+
+<section class="glass panel">
+  <div class="sectionTitle"><div><p class="eyebrow">2. LEITURA AUTOMÁTICA</p><h3>Adicione seu borderô</h3></div><span class="pill">PDF · XLSX · CSV</span></div>
+  <label class="upload" for="fileInput"><strong>Selecionar borderô</strong><span>O BorderoX lê o documento e extrai os principais números.</span><input id="fileInput" type="file" accept=".pdf,.xlsx,.xls,.csv,.txt"></label>
+  <p id="fileStatus" class="status"></p>
+  <div id="reviewBox" class="review hidden">
+    <h4>Conferência da leitura</h4>
+    <p>Antes do cálculo final, confirme os valores abaixo. Você pode corrigir qualquer campo.</p>
+    <div class="formgrid">
+      <label>VGV identificado (R$)<input id="detectedVgv" type="number" step="0.01"></label>
+      <label>Liberado no mês (R$)<input id="detectedReleased" type="number" step="0.01"></label>
+      <label>Total do borderô (R$)<input id="detectedTotal" type="number" step="0.01"></label>
+      <label>Vendas detectadas<input id="detectedSales" type="number" step="1"></label>
+      <label>Período<input id="periodLabel" type="text" placeholder="Ex.: 01/08/2026 a 31/08/2026"></label>
+    </div>
+    <button id="calculateBtn" class="primary">Calcular meu recebimento</button>
+  </div>
+</section>
+
+<section id="breakdownPanel" class="glass panel hidden">
+  <div class="sectionTitle"><div><p class="eyebrow">3. FECHAMENTO</p><h3>Como chegamos nesse valor</h3></div></div>
+  <div id="breakdown" class="breakdown"></div>
+</section>
+
+<section class="glass panel">
+  <div class="sectionTitle"><div><p class="eyebrow">HISTÓRICO</p><h3>Borderôs analisados</h3></div></div>
+  <div id="history" class="history"><p class="muted">Nenhum borderô analisado ainda.</p></div>
+</section>
+</section>
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.8.69/pdf.min.mjs" type="module"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
