@@ -5,6 +5,7 @@ const db=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
 const $=id=>document.getElementById(id);
 const authView=$('authView'),appView=$('appView'),authForm=$('authForm'),authStatus=$('authStatus');
 let authMode='login',currentUser=null,demoMode=false,currentFile=null,extractedText='',lastCalc=null;
+let savedFileInSession=false; // Prevent duplicate history inserts for repeated calculations of the same upload.
 const MONTHS=['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
 
 const money=n=>(Number(n)||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
@@ -122,7 +123,7 @@ async function saveProfile(){
 
 $('fileInput').addEventListener('change',async e=>{
  const file=e.target.files?.[0]; if(!file)return;
- currentFile=file;$('fileStatus').textContent='Lendo '+file.name+'…';$('reviewBox').classList.add('hidden');
+ currentFile=file;savedFileInSession=false;$('fileStatus').textContent='Lendo '+file.name+'…';$('reviewBox').classList.add('hidden');
  try{
    const parsed=await readStatement(file);extractedText=parsed.text||'';
    $('detectedVgv').value=parsed.vgv.toFixed(2);$('detectedReleased').value=parsed.released.toFixed(2);
@@ -189,15 +190,16 @@ async function calculate(){
  lastCalc={vgv,released,detectedTotal,sales,pct,base,rawCommission,minimum,minimumComplement,fixed,spiff,bonus,advance,deductions,companyDebt,companyDebtReason,net,role,commissionBase:$('commissionBase').value,competenceMonth,competenceYear,cashReleaseThreshold};
  renderCalc(lastCalc);
  await saveProfile();
- if(!demoMode&&currentFile){
+ if(!demoMode&&currentFile&&!savedFileInSession){
    const {error}=await db.from('borderox_statements').insert({
      user_id:currentUser.id,file_name:currentFile.name,period_label:$('periodLabel').value||null,
      detected_total:detectedTotal,detected_vgv:vgv,detected_released:released,detected_sales:sales,
      calculation:lastCalc,extracted_text:extractedText.slice(0,50000)
    });
    if(error)$('fileStatus').textContent='Cálculo pronto, mas o histórico não pôde ser salvo: '+error.message;
-   else await loadHistory();
+   else {savedFileInSession=true;await loadHistory();}
  }
+ if(!demoMode&&currentFile&&savedFileInSession){$('fileStatus').textContent='Cálculo atualizado na tela. Este arquivo já foi salvo nesta sessão; para evitar duplicação, o histórico não foi gravado novamente.';}
  window.scrollTo({top:0,behavior:'smooth'});
 }
 
