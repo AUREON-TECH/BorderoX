@@ -222,9 +222,20 @@ function renderCalc(c){
 
 async function loadHistory(){
  if(!currentUser?.id){borderoxHistoryCache=[];renderHistory([]);return;}
- const {data,error}=await db.from('borderox_statements').select('id,file_name,period_label,detected_vgv,calculation,created_at').eq('user_id',currentUser.id).order('created_at',{ascending:false}).limit(200);
- if(error){console.error('Falha ao carregar histórico de borderôs:',error);return;}
- borderoxHistoryCache=data||[]; renderHistory(borderoxHistoryCache);
+ // Paginate instead of silently truncating annual totals at 200 statements.
+ const pageSize=200, all=[];
+ for(let offset=0;;offset+=pageSize){
+  const {data,error}=await db.from('borderox_statements')
+   .select('id,file_name,period_label,detected_vgv,calculation,created_at')
+   .eq('user_id',currentUser.id)
+   .order('created_at',{ascending:false})
+   .order('id',{ascending:false})
+   .range(offset,offset+pageSize-1);
+  if(error){console.error('Falha ao carregar histórico de borderôs:',error);alert('Não foi possível carregar o histórico completo. Os totais não foram atualizados.');return;}
+  all.push(...(data||[]));
+  if(!data||data.length<pageSize)break;
+ }
+ borderoxHistoryCache=all;renderHistory(borderoxHistoryCache);
 }
 function renderHistory(items){
  renderYearSummary(items);
