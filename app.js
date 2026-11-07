@@ -221,7 +221,9 @@ function renderCalc(c){
 }
 
 async function loadHistory(){
- const {data}=await db.from('borderox_statements').select('id,file_name,period_label,detected_vgv,calculation,created_at').order('created_at',{ascending:false}).limit(200);
+ if(!currentUser?.id){borderoxHistoryCache=[];renderHistory([]);return;}
+ const {data,error}=await db.from('borderox_statements').select('id,file_name,period_label,detected_vgv,calculation,created_at').eq('user_id',currentUser.id).order('created_at',{ascending:false}).limit(200);
+ if(error){console.error('Falha ao carregar histórico de borderôs:',error);return;}
  borderoxHistoryCache=data||[]; renderHistory(borderoxHistoryCache);
 }
 function renderHistory(items){
